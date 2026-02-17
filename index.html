@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家計簿入力</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; }
+        .section { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        input[type="radio"] { display: none; }
+        .btn {
+            padding: 10px 20px; border: 2px solid #ddd; background: white;
+            border-radius: 8px; cursor: pointer; transition: 0.3s;
+        }
+        input[type="radio"]:checked + .btn {
+            background-color: #00b900; color: white; border-color: #00b900;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px;
+        }
+        #submit-btn {
+            width: 100%; padding: 15px; background-color: #00b900; color: white;
+            border: none; border-radius: 8px; font-size: 18px; font-weight: bold; margin-top: 20px;
+        }
+        #submit-btn:disabled { background-color: #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="section">
+    <label>タイプ</label>
+    <div class="btn-group">
+        <input type="radio" name="type" value="支出" id="type1" checked><label for="type1" class="btn">支出</label>
+        <input type="radio" name="type" value="収入" id="type2"><label for="type2" class="btn">収入</label>
+    </div>
+</div>
+
+<div class="section">
+    <label>口座</label>
+    <div class="btn-group">
+        <input type="radio" name="account" value="財布" id="acc1" checked><label for="acc1" class="btn">財布</label>
+        <input type="radio" name="account" value="カード" id="acc2"><label for="acc2" class="btn">カード</label>
+    </div>
+</div>
+
+<div class="section">
+    <label>費目</label>
+    <div class="btn-group">
+        <input type="radio" name="category" value="食費" id="cat1" checked><label for="cat1" class="btn">食費</label>
+        <input type="radio" name="category" value="日用品" id="cat2"><label for="cat2" class="btn">日用品</label>
+        <input type="radio" name="category" value="交通費" id="cat3"><label for="cat3" class="btn">交通費</label>
+        <input type="radio" name="category" value="交際費" id="cat4"><label for="cat4" class="btn">交際費</label>
+    </div>
+</div>
+
+<div class="section">
+    <label>金額</label>
+    <input type="number" id="amount" placeholder="金額を入力" inputmode="numeric">
+</div>
+
+<div class="section">
+    <label>備考</label>
+    <input type="text" id="note" placeholder="（任意）">
+</div>
+
+<button id="submit-btn">登録する</button>
+
+<script>
+    // 先ほどデプロイしたGASのWebアプリURLに書き換えてください
+    const GAS_URL = "あなたのGASのウェブアプリURL";
+    const LIFF_ID = "あなたのLIFF ID";
+
+    // LIFFの初期化
+    liff.init({ liffId: LIFF_ID }).then(() => {
+        if (!liff.isLoggedIn()) {
+            liff.login();
+        }
+    });
+
+    document.getElementById('submit-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('submit-btn');
+        const amount = document.getElementById('amount').value;
+        if (!amount) {
+            alert("金額を入力してください");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "送信中...";
+
+        // フォームデータの収集
+        const data = [
+            document.querySelector('input[name="type"]:checked').value,
+            document.querySelector('input[name="account"]:checked').value,
+            document.querySelector('input[name="category"]:checked').value,
+            amount,
+            document.getElementById('note').value
+        ];
+
+        try {
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ type: "regist", data: data })
+            });
+            const result = await response.json();
+
+            if (result.status === "success") {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: `【記帳完了】\n${data[0]}: ${data[2]}\n金額: ${data[3]}円\n(${data[1]})`
+                }]).then(() => {
+                    liff.closeWindow(); // 送信後に自動で閉じる
+                });
+            } else {
+                alert("エラー: " + result.message);
+                btn.disabled = false;
+                btn.innerText = "登録する";
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+            btn.disabled = false;
+            btn.innerText = "登録する";
+        }
+    });
+</script>
+
+</body>
+</html>
